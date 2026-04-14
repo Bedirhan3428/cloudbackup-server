@@ -1,44 +1,31 @@
 import { Router } from 'express'
 import crypto from 'crypto'
-// db importunu (Firestore) burada yaptığından emin ol
-import { db } from '../firebase.js'; // Dosyanın adı ve yolu neyse o
-import { createAccount, listKeys } from '../accounts.js'
+import { keyExists, createAccount, listKeys } from '../accounts.js'
 
 const router = Router()
 
-/**
- * POST /
- * Daha önce '/auth' olan endpoint. 
- * Anahtar kontrolü yapar ve varsa verileri döner.
- */
+// POST /api/auth
 router.post('/', async (req, res) => {
   try {
     const key = (req.body.key ?? '').trim()
     if (!key) return res.status(400).json({ ok: false, error: 'Key boş olamaz' })
-
-    // Firestore üzerinden kontrol
-    const accountDoc = await db.collection('accounts').doc(key).get()
-
-    if (accountDoc.exists) {
-      res.json({ ok: true, data: accountDoc.data() })
-    } else {
-      res.status(401).json({ ok: false, error: 'Geçersiz veya bulunamayan anahtar!' })
-    }
+    
+    const exists = await keyExists(key)
+    if (exists) return res.json({ ok: true })
+    
+    return res.status(401).json({ ok: false, error: 'Geçersiz anahtar' })
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message })
   }
 })
 
-/**
- * POST /keys/create
- * Yeni anahtar ve varsayılan yapılandırma oluşturur.
- */
+// POST /api/auth/keys/create
 router.post('/keys/create', async (req, res) => {
   try {
     const {
       machine_name = 'PC',
       server_url = '',
-      storage_bucket = '',
+      storage_bucket = 'sigalmedia.firebasestorage.app', // Varsayılan bucket
       groq_api_key = '',
       watch_paths = [],
     } = req.body
@@ -69,7 +56,6 @@ router.post('/keys/create', async (req, res) => {
       debounce_seconds: 2,
       sync_on_start: false,
       delete_on_remove: false,
-      created_at: new Date().toISOString()
     }
 
     await createAccount(key, defaultConfig)
@@ -79,16 +65,13 @@ router.post('/keys/create', async (req, res) => {
   }
 })
 
-/**
- * GET /keys/list
- * Kayıtlı tüm anahtarları listeler.
- */
+// GET /api/auth/keys/list
 router.get('/keys/list', async (_req, res) => {
   try {
     const keys = await listKeys()
-    res.json({ ok: true, keys })
+    res.json({ keys })
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message })
+    res.status(500).json({ error: err.message })
   }
 })
 
