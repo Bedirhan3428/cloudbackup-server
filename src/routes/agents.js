@@ -1,16 +1,17 @@
 import { Router } from 'express'
-import path       from 'path'
+import path from 'path'
 import { requireKey, humanSize } from '../helpers.js'
 import { loadConfig, loadAgents, saveAgents } from '../accounts.js'
 import { getBucket } from '../firebase.js'
 
-const router = Router()
+// mergeParams: true, ana router'daki :key parametresine erişimi sağlar
+const router = Router({ mergeParams: true })
 
 // GET /api/:key/agents
-router.get('/:key/agents', requireKey, async (req, res) => {
+router.get('/', requireKey, async (req, res) => {
   try {
     const agents = await loadAgents(req.params.key)
-    const now    = Date.now()
+    const now = Date.now()
 
     const list = Object.values(agents).map(a => ({
       ...a,
@@ -26,23 +27,23 @@ router.get('/:key/agents', requireKey, async (req, res) => {
 })
 
 // POST /api/:key/agents/ping
-router.post('/:key/agents/ping', requireKey, async (req, res) => {
+router.post('/ping', requireKey, async (req, res) => {
   try {
-    const key     = req.params.key
-    const data    = req.body
+    const key = req.params.key
+    const data = req.body
     const machine = data.machine_name ?? 'PC'
-    const agents  = await loadAgents(key)
+    const agents = await loadAgents(key)
 
     if (!agents[machine]) agents[machine] = { files_uploaded: 0, ai_skipped: 0 }
 
     agents[machine] = {
       ...agents[machine],
-      online:         true,
-      last_seen:      new Date().toISOString(),
-      machine_name:   machine,
+      online: true,
+      last_seen: new Date().toISOString(),
+      machine_name: machine,
       files_uploaded: data.files_uploaded ?? agents[machine].files_uploaded,
-      ai_skipped:     data.ai_skipped     ?? agents[machine].ai_skipped ?? 0,
-      last_file:      data.last_file      ?? null,
+      ai_skipped: data.ai_skipped ?? agents[machine].ai_skipped ?? 0,
+      last_file: data.last_file ?? null,
       uptime_seconds: data.uptime_seconds ?? 0,
     }
 
@@ -55,14 +56,14 @@ router.post('/:key/agents/ping', requireKey, async (req, res) => {
   }
 })
 
-// GET /api/:key/stats
-router.get('/:key/stats', requireKey, async (req, res) => {
+// GET /api/:key/agents/stats
+router.get('/stats', requireKey, async (req, res) => {
   try {
     const agents = await loadAgents(req.params.key)
     let totalFiles = 0, totalSize = 0
     const extStats = {}
 
-    const cfg    = await loadConfig(req.params.key)
+    const cfg = await loadConfig(req.params.key)
     const bucket = getBucket(cfg.firebase?.storage_bucket)
 
     if (bucket) {
@@ -80,11 +81,11 @@ router.get('/:key/stats', requireKey, async (req, res) => {
     )
 
     res.json({
-      total_files:      totalFiles,
-      total_size:       totalSize,
+      total_files: totalFiles,
+      total_size: totalSize,
       total_size_human: humanSize(totalSize),
-      ext_stats:        sortedExt,
-      agent_count:      Object.keys(agents).length,
+      ext_stats: sortedExt,
+      agent_count: Object.keys(agents).length,
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
