@@ -4,9 +4,14 @@ import { keyExists } from './accounts.js'
 export function requireKey(req, res, next) {
   const key = req.params.key
   if (!key) return res.status(401).json({ error: 'Key eksik' })
+  
   keyExists(key)
     .then(exists => exists ? next() : res.status(401).json({ error: 'Geçersiz key' }))
-    .catch(() => res.status(500).json({ error: 'Auth hatası' }))
+    .catch((err) => {
+      // Hata Render konsoluna yazdırılıyor
+      console.error(`[Auth Hatası] Key kontrolü başarısız:`, err.message);
+      res.status(500).json({ error: 'Auth hatası: ' + err.message })
+    })
 }
 
 // Dosya boyutunu insan okunabilir yapar
