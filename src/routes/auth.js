@@ -1,25 +1,25 @@
 import { Router } from 'express'
 import crypto from 'crypto'
-// Firestore veritabanı bağlantınızın burada import edildiğinden emin olun
+// db importunu (Firestore) burada yaptığından emin ol
 // import { db } from '../firebase-config.js' 
-import { keyExists, createAccount, listKeys } from '../accounts.js'
+import { createAccount, listKeys } from '../accounts.js'
 
 const router = Router()
 
 /**
- * POST /api/auth
- * Gönderilen key'in geçerli olup olmadığını kontrol eder ve verileri döner.
+ * POST /
+ * Daha önce '/auth' olan endpoint. 
+ * Anahtar kontrolü yapar ve varsa verileri döner.
  */
-router.post('/auth', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const key = (req.body.key ?? '').trim()
     if (!key) return res.status(400).json({ ok: false, error: 'Key boş olamaz' })
 
-    // Firestore'dan dökümanı çekiyoruz
+    // Firestore üzerinden kontrol
     const accountDoc = await db.collection('accounts').doc(key).get()
 
     if (accountDoc.exists) {
-      // Eğer anahtar varsa verilerle birlikte başarılı dön
       res.json({ ok: true, data: accountDoc.data() })
     } else {
       res.status(401).json({ ok: false, error: 'Geçersiz veya bulunamayan anahtar!' })
@@ -30,8 +30,8 @@ router.post('/auth', async (req, res) => {
 })
 
 /**
- * POST /api/keys/create
- * Rastgele bir key (CB-XXXX-XXXX-XXXX) ve varsayılan konfigürasyon oluşturur.
+ * POST /keys/create
+ * Yeni anahtar ve varsayılan yapılandırma oluşturur.
  */
 router.post('/keys/create', async (req, res) => {
   try {
@@ -43,7 +43,6 @@ router.post('/keys/create', async (req, res) => {
       watch_paths = [],
     } = req.body
 
-    // Rastgele Key Oluşturma (Format: CB-A1B2-C3D4-E5F6)
     const key = 'CB-' + [1, 2, 3]
       .map(() => crypto.randomBytes(2).toString('hex').toUpperCase())
       .join('-')
@@ -81,8 +80,8 @@ router.post('/keys/create', async (req, res) => {
 })
 
 /**
- * GET /api/keys/list
- * Mevcut tüm anahtarları listeler.
+ * GET /keys/list
+ * Kayıtlı tüm anahtarları listeler.
  */
 router.get('/keys/list', async (_req, res) => {
   try {
