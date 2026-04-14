@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import crypto from 'crypto'
 // db importunu (Firestore) burada yaptığından emin ol
-// import { db } from '../firebase-config.js' 
+import { db } from '../firebase-config.js'; // Dosyanın adı ve yolu neyse o
 import { createAccount, listKeys } from '../accounts.js'
 
 const router = Router()
