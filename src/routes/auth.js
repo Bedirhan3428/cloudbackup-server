@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import crypto     from 'crypto'
+import crypto from 'crypto'
 import { keyExists, createAccount, listKeys } from '../accounts.js'
 
 const router = Router()
@@ -28,7 +28,7 @@ router.post('/keys/create', async (req, res) => {
       watch_paths = [],
     } = req.body
 
-    const key = 'CB-' + [1,2,3]
+    const key = 'CB-' + [1, 2, 3]
       .map(() => crypto.randomBytes(2).toString('hex').toUpperCase())
       .join('-')
 
@@ -41,13 +41,13 @@ router.post('/keys/create', async (req, res) => {
       ai_model: 'llama-3.3-70b-versatile',
       watch_paths,
       allowed_extensions: [
-        '.pdf','.docx','.doc','.xlsx','.xls','.pptx',
-        '.jpg','.jpeg','.png','.gif','.webp',
-        '.txt','.csv','.json','.xml','.yaml',
-        '.py','.js','.ts','.html','.css','.sql',
-        '.zip','.rar','.7z','.mp4','.mov',
+        '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx',
+        '.jpg', '.jpeg', '.png', '.gif', '.webp',
+        '.txt', '.csv', '.json', '.xml', '.yaml',
+        '.py', '.js', '.ts', '.html', '.css', '.sql',
+        '.zip', '.rar', '.7z', '.mp4', '.mov',
       ],
-      blocked_extensions: ['.exe','.dll','.sys','.msi','.tmp','.temp'],
+      blocked_extensions: ['.exe', '.dll', '.sys', '.msi', '.tmp', '.temp'],
       max_file_size_mb: 50,
       flash_enabled: true,
       flash_max_mb: 10,
@@ -62,6 +62,7 @@ router.post('/keys/create', async (req, res) => {
     res.status(500).json({ ok: false, error: err.message })
   }
 })
+
 
 // GET /api/keys/list
 router.get('/keys/list', async (_req, res) => {
