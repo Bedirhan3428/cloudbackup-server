@@ -4,7 +4,7 @@ import { requireKey, humanSize, extIcon } from '../helpers.js'
 import { loadConfig } from '../accounts.js'
 import { getBucket } from '../firebase.js'
 
-const router = Router()
+const router = Router({ mergeParams: true })
 
 async function getBucketForKey(key) {
   try {
@@ -15,37 +15,9 @@ async function getBucketForKey(key) {
   }
 }
 
-// src/routes/files.js içine ekle
-
-// POST /api/files/upload
-router.post('/upload', async (req, res) => {
-  try {
-    const { key, filename, content, path: filePath } = req.body
-    if (!key || !filename || !content) return res.status(400).json({ error: 'Eksik veri' })
-
-    const bucket = await getBucketForKey(key)
-    if (!bucket) return res.status(503).json({ error: 'Firebase Storage erişilemez' })
-
-    const file = bucket.file(`backups/${key}/${filename}`)
-    await file.save(content, {
-      metadata: {
-        metadata: {
-          backup_time: new Date().toISOString(),
-          original_path: filePath || ''
-        }
-      }
-    })
-
-    res.json({ ok: true, message: 'Dosya başarıyla yüklendi' })
-  } catch (err) {
-    console.error('[UPLOAD ERROR]', err)
-    res.status(500).json({ error: err.message })
-  }
-})
-
 // GET /api/:key/files
-router.get('/:key/files', requireKey, async (req, res) => {
-  const bucket = await getBucketForKey(req.params.key) // DÜZELTİLDİ: await eklendi
+router.get('/', requireKey, async (req, res) => {
+  const bucket = await getBucketForKey(req.params.key)
   if (!bucket) return res.status(503).json({ error: 'Firebase bağlantı hatası' })
 
   try {
@@ -82,7 +54,6 @@ router.get('/:key/files', requireKey, async (req, res) => {
 
     files.sort((a, b) => (b.updated ?? '').localeCompare(a.updated ?? ''))
 
-    // Uzantı istatistikleri
     const extStats = {}
     for (const f of files) {
       const e = path.extname(f.name).toLowerCase() || 'diğer'
@@ -112,8 +83,8 @@ router.get('/:key/files', requireKey, async (req, res) => {
 })
 
 // DELETE /api/:key/files/delete
-router.delete('/:key/files/delete', requireKey, async (req, res) => {
-  const bucket = await getBucketForKey(req.params.key) // DÜZELTİLDİ: await eklendi
+router.delete('/delete', requireKey, async (req, res) => {
+  const bucket = await getBucketForKey(req.params.key)
   if (!bucket) return res.status(503).json({ error: 'Firebase yok' })
 
   try {
@@ -125,5 +96,31 @@ router.delete('/:key/files/delete', requireKey, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+
+// UPLOAD Handler (index.js tarafından /api/files/upload için kullanılır)
+export const uploadHandler = async (req, res) => {
+  try {
+    const { key, filename, content, path: filePath } = req.body
+    if (!key || !filename || !content) return res.status(400).json({ error: 'Eksik veri' })
+
+    const bucket = await getBucketForKey(key)
+    if (!bucket) return res.status(503).json({ error: 'Firebase Storage erişilemez' })
+
+    const file = bucket.file(`backups/${key}/${filename}`)
+    await file.save(content, {
+      metadata: {
+        metadata: {
+          backup_time: new Date().toISOString(),
+          original_path: filePath || ''
+        }
+      }
+    })
+
+    res.json({ ok: true, message: 'Dosya başarıyla yüklendi' })
+  } catch (err) {
+    console.error('[UPLOAD ERROR]', err)
+    res.status(500).json({ error: err.message })
+  }
+}
 
 export default router
