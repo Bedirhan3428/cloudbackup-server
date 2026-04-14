@@ -1,0 +1,20 @@
+{
+  "name": "cloudbackup-server",
+  "version": "3.0.0",
+  "description": "CloudBackup API Server",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node start.cjs",
+    "dev":   "node --watch start.cjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "firebase-admin": "^12.2.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

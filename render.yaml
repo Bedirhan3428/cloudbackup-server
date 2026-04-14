@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: cloudbackup-server
+    runtime: python
+    region: frankfurt          # Türkiye'ye en yakın
+    plan: starter              # $7/ay — persistent disk için gerekli
+
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn --workers 2 --bind 0.0.0.0:$PORT --timeout 120 server:app"
+
+    rootDir: server
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: ACCOUNTS_DIR
+        value: /data/accounts      # Persistent disk mount noktası
+      - key: ADMIN_KEY             # İlk key'i elle oluşturmak için
+        generateValue: true        # Render otomatik üretir
+
+    disk:
+      name: cloudbackup-data
+      mountPath: /data             # accounts/ ve loglar burada kalıcı
+      sizeGB: 1                    # $1/ay
