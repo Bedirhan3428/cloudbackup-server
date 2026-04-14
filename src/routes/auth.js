@@ -1,23 +1,38 @@
 import { Router } from 'express'
 import crypto from 'crypto'
+// Firestore veritabanı bağlantınızın burada import edildiğinden emin olun
+// import { db } from '../firebase-config.js' 
 import { keyExists, createAccount, listKeys } from '../accounts.js'
 
 const router = Router()
 
-// POST /api/auth
+/**
+ * POST /api/auth
+ * Gönderilen key'in geçerli olup olmadığını kontrol eder ve verileri döner.
+ */
 router.post('/auth', async (req, res) => {
   try {
     const key = (req.body.key ?? '').trim()
-    if (!key) return res.json({ ok: false, error: 'Key boş' })
-    const exists = await keyExists(key)
-    if (exists) return res.json({ ok: true })
-    return res.json({ ok: false, error: 'Geçersiz key' })
+    if (!key) return res.status(400).json({ ok: false, error: 'Key boş olamaz' })
+
+    // Firestore'dan dökümanı çekiyoruz
+    const accountDoc = await db.collection('accounts').doc(key).get()
+
+    if (accountDoc.exists) {
+      // Eğer anahtar varsa verilerle birlikte başarılı dön
+      res.json({ ok: true, data: accountDoc.data() })
+    } else {
+      res.status(401).json({ ok: false, error: 'Geçersiz veya bulunamayan anahtar!' })
+    }
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message })
   }
 })
 
-// POST /api/keys/create
+/**
+ * POST /api/keys/create
+ * Rastgele bir key (CB-XXXX-XXXX-XXXX) ve varsayılan konfigürasyon oluşturur.
+ */
 router.post('/keys/create', async (req, res) => {
   try {
     const {
@@ -28,6 +43,7 @@ router.post('/keys/create', async (req, res) => {
       watch_paths = [],
     } = req.body
 
+    // Rastgele Key Oluşturma (Format: CB-A1B2-C3D4-E5F6)
     const key = 'CB-' + [1, 2, 3]
       .map(() => crypto.randomBytes(2).toString('hex').toUpperCase())
       .join('-')
@@ -54,6 +70,7 @@ router.post('/keys/create', async (req, res) => {
       debounce_seconds: 2,
       sync_on_start: false,
       delete_on_remove: false,
+      created_at: new Date().toISOString()
     }
 
     await createAccount(key, defaultConfig)
@@ -63,14 +80,16 @@ router.post('/keys/create', async (req, res) => {
   }
 })
 
-
-// GET /api/keys/list
+/**
+ * GET /api/keys/list
+ * Mevcut tüm anahtarları listeler.
+ */
 router.get('/keys/list', async (_req, res) => {
   try {
     const keys = await listKeys()
-    res.json({ keys })
+    res.json({ ok: true, keys })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ ok: false, error: err.message })
   }
 })
 
