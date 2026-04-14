@@ -30,7 +30,7 @@ app.use(cors({
   credentials: true
 }))
 
-app.use(express.json({ limit: '50mb' }))
+app.use(express.json({ limit: '150mb' }))
 
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
@@ -57,6 +57,10 @@ app.get('/', (req, res) => {
     message: 'CloudBackup API Server Global Active',
     version: '3.0.0'
   })
+})
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
 app.listen(PORT, '0.0.0.0', () => {

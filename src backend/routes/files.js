@@ -4,7 +4,7 @@ import { requireKey, humanSize, extIcon } from '../helpers.js'
 import { loadConfig } from '../accounts.js'
 import { getBucket } from '../firebase.js'
 
-const router = Router({ mergeParams: true })
+const router = Router()
 
 async function getBucketForKey(key) {
   try {
@@ -15,26 +15,47 @@ async function getBucketForKey(key) {
   }
 }
 
+// src/routes/files.js içine ekle
+
+// POST /api/files/upload
+router.post('/upload', async (req, res) => {
+  try {
+    const { key, filename, content, path: filePath } = req.body
+    if (!key || !filename || !content) return res.status(400).json({ error: 'Eksik veri' })
+
+    const bucket = await getBucketForKey(key)
+    if (!bucket) return res.status(503).json({ error: 'Firebase Storage erişilemez' })
+
+    const file = bucket.file(`backups/${key}/${filename}`)
+    await file.save(content, {
+      metadata: {
+        metadata: {
+          backup_time: new Date().toISOString(),
+          original_path: filePath || ''
+        }
+      }
+    })
+
+    res.json({ ok: true, message: 'Dosya başarıyla yüklendi' })
+  } catch (err) {
+    console.error('[UPLOAD ERROR]', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /api/:key/files
-router.get('/', requireKey, async (req, res) => {
-  const bucket = await getBucketForKey(req.params.key)
+router.get('/:key/files', requireKey, async (req, res) => {
+  const bucket = await getBucketForKey(req.params.key) // DÜZELTİLDİ: await eklendi
   if (!bucket) return res.status(503).json({ error: 'Firebase bağlantı hatası' })
 
   try {
     const { search = '', ext = '', page = 1, per_page = 50 } = req.query
-    
-    // SADECE BU KEY'E AİT DOSYALARI GETİRİR (Sigal Media'dan ayırır)
-    const [blobs] = await bucket.getFiles({
-      prefix: `backups/${req.params.key}/`
-    })
+    const [blobs] = await bucket.getFiles()
 
     let files = []
     let totalSize = 0
 
     for (const blob of blobs) {
-      // Sadece klasörün kendisini listelememesi için atlıyoruz
-      if (blob.name.endsWith('/')) continue;
-
       const name = path.basename(blob.name)
       if (search && !blob.name.toLowerCase().includes(search.toLowerCase())) continue
       if (ext && !name.toLowerCase().endsWith(ext.toLowerCase())) continue
@@ -61,6 +82,7 @@ router.get('/', requireKey, async (req, res) => {
 
     files.sort((a, b) => (b.updated ?? '').localeCompare(a.updated ?? ''))
 
+    // Uzantı istatistikleri
     const extStats = {}
     for (const f of files) {
       const e = path.extname(f.name).toLowerCase() || 'diğer'
@@ -90,55 +112,18 @@ router.get('/', requireKey, async (req, res) => {
 })
 
 // DELETE /api/:key/files/delete
-router.delete('/delete', requireKey, async (req, res) => {
-  const bucket = await getBucketForKey(req.params.key)
+router.delete('/:key/files/delete', requireKey, async (req, res) => {
+  const bucket = await getBucketForKey(req.params.key) // DÜZELTİLDİ: await eklendi
   if (!bucket) return res.status(503).json({ error: 'Firebase yok' })
 
   try {
     const { path: filePath } = req.body
     await bucket.file(filePath).delete()
+    console.log(`[DEL] ${req.params.key.slice(0, 8)}: ${filePath}`)
     res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
 })
-
-export const uploadHandler = async (req, res) => {
-  try {
-    const { key, filename, content, path: filePath, encoding,
-            machine_name, ai_reason, ai_confidence, source_label, file_hash } = req.body
-    if (!key || !filename || !content) return res.status(400).json({ error: 'Eksik veri' })
-
-    const bucket = await getBucketForKey(key)
-    if (!bucket) return res.status(503).json({ error: 'Firebase Storage erişilemez' })
-
-    // Agent base64 gönderiyorsa decode et
-    const buffer = encoding === 'base64'
-      ? Buffer.from(content, 'base64')
-      : Buffer.from(content, 'utf-8')
-
-    const remotePath = `backups/${key}/${filename}`
-    const file = bucket.file(remotePath)
-    await file.save(buffer, {
-      metadata: {
-        metadata: {
-          backup_time:     new Date().toISOString(),
-          original_path:   filePath || '',
-          source_machine:  machine_name || '',
-          ai_reason:       ai_reason || '',
-          ai_confidence:   ai_confidence || '',
-          source_label:    source_label || '',
-          file_hash:       file_hash || '',
-        }
-      }
-    })
-
-    console.log(`[UPLOAD] ${filename} (${(buffer.length / 1024).toFixed(1)} KB) -> ${remotePath}`)
-    res.json({ ok: true, message: 'Dosya yüklendi' })
-  } catch (err) {
-    console.error('[UPLOAD ERROR]', err)
-    res.status(500).json({ error: err.message })
-  }
-}
 
 export default router
