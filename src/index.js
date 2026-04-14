@@ -46,11 +46,11 @@ app.use((req, res, next) => {
 })
 
 // Rotaları Bağla
-app.use('/api/auth', authRoutes)
-app.use('/api/keys', configRoutes)
-app.use('/api/logs', logRoutes)
-app.use('/api/files', fileRoutes)
-app.use('/api/agents', agentRoutes)
+app.use('/api/auth', authRoutes);
+app.use('/api/:key/config', configRoutes); // Değişti: /api/keys -> /api/:key/config
+app.use('/api/:key/logs', logRoutes);     // Değişti: /api/logs -> /api/:key/logs
+app.use('/api/:key/files', fileRoutes);   // Değişti: /api/files -> /api/:key/files
+app.use('/api/:key/agents', agentRoutes); // Değişti: /api/agents -> /api/:key/agents
 
 // Ana Sayfa Test Rootu
 app.get('/', (req, res) => {
