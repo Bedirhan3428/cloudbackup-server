@@ -22,12 +22,19 @@ router.get('/', requireKey, async (req, res) => {
 
   try {
     const { search = '', ext = '', page = 1, per_page = 50 } = req.query
-    const [blobs] = await bucket.getFiles()
+    
+    // SADECE BU KEY'E AİT DOSYALARI GETİRİR (Sigal Media'dan ayırır)
+    const [blobs] = await bucket.getFiles({
+      prefix: `backups/${req.params.key}/`
+    })
 
     let files = []
     let totalSize = 0
 
     for (const blob of blobs) {
+      // Sadece klasörün kendisini listelememesi için atlıyoruz
+      if (blob.name.endsWith('/')) continue;
+
       const name = path.basename(blob.name)
       if (search && !blob.name.toLowerCase().includes(search.toLowerCase())) continue
       if (ext && !name.toLowerCase().endsWith(ext.toLowerCase())) continue
