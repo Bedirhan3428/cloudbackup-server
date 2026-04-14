@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { requireKey } from '../helpers.js'
 import { appendLog, getLogs } from '../accounts.js'
 
-const router = Router()
+const router = Router({ mergeParams: true })
 
 function classify(line) {
   if (line.includes('[ERROR]') || line.includes('❌')) return 'error'
@@ -14,7 +14,7 @@ function classify(line) {
 }
 
 // GET /api/:key/logs
-router.get('/:key/logs', requireKey, async (req, res) => {
+router.get('/', requireKey, async (req, res) => {
   try {
     const n    = Math.min(parseInt(req.query.lines ?? 100), 500)
     const lines = await getLogs(req.params.key, n)
@@ -26,8 +26,8 @@ router.get('/:key/logs', requireKey, async (req, res) => {
   }
 })
 
-// POST /api/:key/logs  — agent log gönderir
-router.post('/:key/logs', requireKey, async (req, res) => {
+// POST /api/:key/logs
+router.post('/', requireKey, async (req, res) => {
   try {
     const { line } = req.body
     if (!line) return res.json({ ok: false })
