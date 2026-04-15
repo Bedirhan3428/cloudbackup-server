@@ -54,7 +54,7 @@ router.post('/keys/create', async (req, res) => {
       flash_enabled: true,
       flash_max_mb: 10,
       debounce_seconds: 2,
-      sync_on_start: false,
+      sync_on_start: true, // Varsayılan olarak başlangıçta tara
       delete_on_remove: false,
     }
 

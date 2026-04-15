@@ -89,6 +89,33 @@ router.get('/', requireKey, async (req, res) => {
   }
 })
 
+// GET /api/:key/files/download?path=...
+router.get('/download', requireKey, async (req, res) => {
+  const bucket = await getBucketForKey(req.params.key)
+  if (!bucket) return res.status(503).json({ error: 'Firebase bağlantı hatası' })
+
+  try {
+    const { path: filePath } = req.query
+    if (!filePath) return res.status(400).json({ error: 'Dosya yolu eksik' })
+
+    const file = bucket.file(filePath)
+    const [exists] = await file.exists()
+    if (!exists) return res.status(404).json({ error: 'Dosya bulunamadı' })
+
+    // 15 dakikalık geçici indirme linki oluştur
+    const [url] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000, // 15 dakika
+    })
+
+    res.json({ url })
+  } catch (err) {
+    console.error('[DOWNLOAD]', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // DELETE /api/:key/files/delete
 router.delete('/delete', requireKey, async (req, res) => {
   const bucket = await getBucketForKey(req.params.key)
@@ -103,11 +130,14 @@ router.delete('/delete', requireKey, async (req, res) => {
   }
 })
 
+
 export const uploadHandler = async (req, res) => {
   try {
     const { key, filename, content, path: filePath, encoding,
             machine_name, ai_reason, ai_confidence, source_label, file_hash } = req.body
-    if (!key || !filename || content === undefined) return res.status(400).json({ error: 'Eksik veri' })
+    if (!key) return res.status(400).json({ error: 'Eksik veri: key' })
+    if (!filename) return res.status(400).json({ error: 'Eksik veri: filename' })
+    if (content === undefined) return res.status(400).json({ error: 'Eksik veri: content' })
 
     const bucket = await getBucketForKey(key)
     if (!bucket) return res.status(503).json({ error: 'Firebase Storage erişilemez' })
