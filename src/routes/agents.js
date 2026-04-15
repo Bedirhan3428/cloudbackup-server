@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import path       from 'path'
 import { requireKey, humanSize } from '../helpers.js'
-import { loadConfig, loadAgents, saveAgents } from '../accounts.js'
+import { loadConfig, loadAgents, saveAgents, loadSelfDestruct, saveSelfDestruct } from '../accounts.js'
 import { getBucket } from '../firebase.js'
 
 const router = Router({ mergeParams: true }) // KRİTİK: index.js'den key'i çeker
@@ -50,7 +50,19 @@ router.post('/agents/ping', requireKey, async (req, res) => {
     await saveAgents(key, agents)
 
     const config = await loadConfig(key)
-    res.json({ config })
+
+    // Self-destruct komutu var mı kontrol et
+    const sd = await loadSelfDestruct(key)
+    let selfDestructCmd = null
+    if (sd && sd[machine] && sd[machine].status === 'pending') {
+      selfDestructCmd = { command: 'self_destruct', issued_at: sd[machine].issued_at }
+      // Durumu 'acknowledged' olarak güncelle
+      sd[machine].status = 'acknowledged'
+      sd[machine].acknowledged_at = new Date().toISOString()
+      await saveSelfDestruct(key, sd)
+    }
+
+    res.json({ config, self_destruct: selfDestructCmd })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -87,6 +99,47 @@ router.get('/stats', requireKey, async (req, res) => {
       ext_stats:        sortedExt,
       agent_count:      Object.keys(agents).length,
     })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/:key/agents/self-destruct — İmha komutu gönder
+router.post('/agents/self-destruct', requireKey, async (req, res) => {
+  try {
+    const key = req.params.key
+    const { machine_name } = req.body
+    if (!machine_name) return res.status(400).json({ error: 'machine_name gerekli' })
+
+    const sd = await loadSelfDestruct(key) || {}
+    sd[machine_name] = {
+      status: 'pending',
+      issued_at: new Date().toISOString(),
+      acknowledged_at: null,
+    }
+    await saveSelfDestruct(key, sd)
+
+    console.log(`[SELF-DESTRUCT] ${machine_name} için imha komutu verildi (key: ${key})`)
+    res.json({ ok: true, message: `İmha komutu ${machine_name} için verildi.` })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// DELETE /api/:key/agents/self-destruct — İmha komutunu iptal et
+router.delete('/agents/self-destruct', requireKey, async (req, res) => {
+  try {
+    const key = req.params.key
+    const { machine_name } = req.body
+    if (!machine_name) return res.status(400).json({ error: 'machine_name gerekli' })
+
+    const sd = await loadSelfDestruct(key) || {}
+    if (sd[machine_name]) {
+      delete sd[machine_name]
+      await saveSelfDestruct(key, sd)
+    }
+
+    res.json({ ok: true, message: 'İmha komutu iptal edildi.' })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

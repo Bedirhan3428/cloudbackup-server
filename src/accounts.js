@@ -26,6 +26,15 @@ export async function saveAgents(key, data) {
   await col().doc(key).collection('data').doc('agents').set(data)
 }
 
+export async function loadSelfDestruct(key) {
+  const doc = await col().doc(key).collection('data').doc('self_destruct').get()
+  return doc.exists ? doc.data() : {}
+}
+
+export async function saveSelfDestruct(key, data) {
+  await col().doc(key).collection('data').doc('self_destruct').set(data)
+}
+
 export async function appendLog(key, text) {
   await col().doc(key).collection('logs').add({ text, ts: Date.now() })
   if (Math.random() < 0.02) pruneOldLogs(key).catch(() => {})
