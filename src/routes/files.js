@@ -107,7 +107,7 @@ export const uploadHandler = async (req, res) => {
   try {
     const { key, filename, content, path: filePath, encoding,
             machine_name, ai_reason, ai_confidence, source_label, file_hash } = req.body
-    if (!key || !filename || !content) return res.status(400).json({ error: 'Eksik veri' })
+    if (!key || !filename || content === undefined) return res.status(400).json({ error: 'Eksik veri' })
 
     const bucket = await getBucketForKey(key)
     if (!bucket) return res.status(503).json({ error: 'Firebase Storage erişilemez' })
