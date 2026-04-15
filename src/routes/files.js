@@ -89,6 +89,134 @@ router.get('/', requireKey, async (req, res) => {
   }
 })
 
+// GET /api/:key/files/browse?dir=...
+router.get('/browse', requireKey, async (req, res) => {
+  const bucket = await getBucketForKey(req.params.key)
+  if (!bucket) return res.status(503).json({ error: 'Firebase bağlantı hatası' })
+
+  try {
+    const { dir = '' } = req.query
+
+    const [blobs] = await bucket.getFiles({
+      prefix: `backups/${req.params.key}/`
+    })
+
+    // Build a virtual filesystem from original_path metadata
+    const folders = new Set()
+    const filesAtDir = []
+    let totalSize = 0
+
+    for (const blob of blobs) {
+      if (blob.name.endsWith('/')) continue
+
+      const name = path.basename(blob.name)
+      const meta = blob.metadata?.metadata ?? {}
+      const originalPath = meta.original_path ?? ''
+      const size = parseInt(blob.metadata?.size ?? 0)
+
+      // Normalize path separators
+      const normalized = originalPath.replace(/\//g, '\\')
+
+      // Extract the directory part from original path
+      const lastSep = normalized.lastIndexOf('\\')
+      const fileDir = lastSep >= 0 ? normalized.substring(0, lastSep) : ''
+
+      // Normalize current dir for comparison
+      const normalizedDir = dir.replace(/\//g, '\\').replace(/\\$/, '')
+
+      if (normalizedDir === '') {
+        // Root level: show top-level drive/folder structure
+        if (normalized.length > 0) {
+          // Get the first path segment (e.g., "C:" from "C:\Users\...")
+          const parts = normalized.split('\\').filter(Boolean)
+          if (parts.length > 0) {
+            if (parts.length > 1) {
+              folders.add(parts[0])
+            } else {
+              // File at root level
+              filesAtDir.push({
+                icon: extIcon(name),
+                name,
+                path: blob.name,
+                size,
+                size_human: humanSize(size),
+                updated: blob.metadata?.updated ?? null,
+                backup_time: meta.backup_time ?? null,
+                original_path: originalPath,
+                machine: meta.source_machine ?? '—',
+                ai_reason: meta.ai_reason ?? '',
+                ai_confidence: meta.ai_confidence ?? '',
+              })
+            }
+          }
+        } else {
+          // Files without original_path go to root
+          filesAtDir.push({
+            icon: extIcon(name),
+            name,
+            path: blob.name,
+            size,
+            size_human: humanSize(size),
+            updated: blob.metadata?.updated ?? null,
+            backup_time: meta.backup_time ?? null,
+            original_path: originalPath,
+            machine: meta.source_machine ?? '—',
+            ai_reason: meta.ai_reason ?? '',
+            ai_confidence: meta.ai_confidence ?? '',
+          })
+        }
+        totalSize += size
+      } else {
+        // Check if this file is under the requested directory
+        if (normalized.toLowerCase().startsWith(normalizedDir.toLowerCase() + '\\') || fileDir.toLowerCase() === normalizedDir.toLowerCase()) {
+          totalSize += size
+
+          if (fileDir.toLowerCase() === normalizedDir.toLowerCase()) {
+            // File is directly in this directory
+            filesAtDir.push({
+              icon: extIcon(name),
+              name,
+              path: blob.name,
+              size,
+              size_human: humanSize(size),
+              updated: blob.metadata?.updated ?? null,
+              backup_time: meta.backup_time ?? null,
+              original_path: originalPath,
+              machine: meta.source_machine ?? '—',
+              ai_reason: meta.ai_reason ?? '',
+              ai_confidence: meta.ai_confidence ?? '',
+            })
+          } else {
+            // File is in a subdirectory — extract the next folder name
+            const remaining = normalized.substring(normalizedDir.length + 1)
+            const nextFolder = remaining.split('\\')[0]
+            if (nextFolder) {
+              folders.add(nextFolder)
+            }
+          }
+        }
+      }
+    }
+
+    // Sort folders alphabetically, files by name
+    const sortedFolders = [...folders].sort((a, b) => a.localeCompare(b, 'tr'))
+    filesAtDir.sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+
+    res.json({
+      current_dir: dir,
+      folders: sortedFolders,
+      files: filesAtDir,
+      total_files: filesAtDir.length,
+      total_folders: sortedFolders.length,
+      total_size: totalSize,
+      total_size_human: humanSize(totalSize),
+    })
+  } catch (err) {
+    console.error('[BROWSE]', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /api/:key/files/download?path=...
 router.get('/download', requireKey, async (req, res) => {
   const bucket = await getBucketForKey(req.params.key)
