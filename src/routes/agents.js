@@ -44,6 +44,7 @@ router.post('/agents/ping', requireKey, async (req, res) => {
       ai_skipped:     data.ai_skipped     ?? agents[machine].ai_skipped ?? 0,
       last_file:      data.last_file      ?? null,
       uptime_seconds: data.uptime_seconds ?? 0,
+      directory_map:  data.directory_map  ?? agents[machine].directory_map ?? null,
     }
 
     await saveAgents(key, agents)
